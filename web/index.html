@@ -1,24 +1,196 @@
+
 <!DOCTYPE html>
 <html lang="es">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Inventario de Refacciones</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MotoStock | Inventario</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;font-family:Arial,sans-serif;background:#f2f4f8;color:#202b3c}
+header{background:#202b36;color:white;padding:22px 6%;display:flex;justify-content:space-between;flex-wrap:wrap;gap:12px}
+.logo{font-size:28px;font-weight:bold}.logo span{color:#f2a12b}
+header p{color:#cbd5e1}
+main{max-width:1100px;margin:30px auto;padding:0 16px}
+.subtitulo,.descripcion{color:#6b7280}
+.tarjetas{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:16px;margin:25px 0}
+.tarjeta,.panel{background:white;padding:20px;border:1px solid #e3e7ee;border-radius:12px;margin-bottom:20px}
+.etiqueta{color:#6b7280;font-size:14px}.numero{font-size:27px;font-weight:bold;margin-top:12px}
+.formulario{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px}
+input,select,button{padding:12px;border:1px solid #d5dbe5;border-radius:7px;font-size:14px;width:100%}
+button{background:#f2a12b;color:#202b36;border:0;font-weight:bold;cursor:pointer}
+button:hover{opacity:.85}
+.mensaje{margin-top:12px;color:#276749}
+.tabla-contenedor{overflow-x:auto}
+table{width:100%;min-width:500px;border-collapse:collapse}
+th,td{text-align:left;padding:12px 9px;border-bottom:1px solid #e3e7ee;font-size:14px}
+th{background:#f8fafc;color:#596579}
+.stock{background:#fff0d5;color:#8b5b13;padding:5px 9px;border-radius:20px}
+.grafica{display:flex;gap:24px;align-items:center;justify-content:center;flex-wrap:wrap;min-height:240px}
+.pastel{width:190px;height:190px;border-radius:50%;background:#e5e7eb;flex-shrink:0}
+.leyenda{display:grid;gap:10px}
+.item-leyenda{display:flex;align-items:center;gap:8px;font-size:14px}
+.color{width:13px;height:13px;border-radius:3px;display:inline-block}
+.estado{font-size:13px;color:#64748b}
+@media(max-width:450px){.pastel{width:160px;height:160px}}
+</style>
 </head>
 <body>
-    <h1>Inventario de Refacciones para Motocicletas</h1>
+<header>
+  <div><div class="logo">Moto<span>Stock</span></div><p>Inventario de refacciones</p></div>
+  <div>Panel de administración</div>
+</header>
+<main>
+  <h1>Resumen del inventario</h1>
+  <p class="subtitulo">Control de refacciones y compras.</p>
+  <p id="estado" class="estado">Conectando con la base de datos...</p>
 
-    <p>Proyecto de práctica de Linux, Docker y bases de datos.</p>
+  <section class="tarjetas">
+    <article class="tarjeta"><div class="etiqueta">📦 Tipos de refacciones</div><div class="numero" id="total">—</div></article>
+    <article class="tarjeta"><div class="etiqueta">🧰 Unidades en existencia</div><div class="numero" id="unidades">—</div></article>
+    <article class="tarjeta"><div class="etiqueta">💰 Valor del inventario</div><div class="numero" id="valor">—</div></article>
+  </section>
 
-    <h2>Objetivo</h2>
-    <p>Organizar refacciones, consultar precios y analizar existencias.</p>
+  <section class="panel">
+    <h2>Registrar refacción</h2>
+    <p class="descripcion">Agrega un producto nuevo al inventario.</p>
+    <form id="formulario">
+      <div class="formulario">
+        <input name="nombre" placeholder="Nombre de la refacción" required maxlength="100">
+        <input name="categoria" placeholder="Categoría" required maxlength="50">
+        <input name="marca" placeholder="Marca" required maxlength="50">
+        <input name="precio" type="number" placeholder="Precio en MXN" min="0" step="0.01" required>
+        <input name="stock" type="number" placeholder="Cantidad en stock" min="0" step="1" required>
+        <button type="submit">Guardar refacción</button>
+      </div>
+    </form>
+    <p id="mensaje" class="mensaje"></p>
+  </section>
 
-    <h2>Componentes del proyecto</h2>
-    <ul>
-        <li>Servidor web Nginx</li>
-        <li>Base de datos PostgreSQL</li>
-        <li>Análisis de datos con Python y Jupyter</li>
-        <li>Contenedores con Docker Compose</li>
-    </ul>
+  <section class="panel">
+    <h2>Existencias por categoría</h2>
+    <p class="descripcion">Piezas disponibles por categoría.</p>
+    <div class="grafica" id="graficaStock"></div>
+  </section>
+
+  <section class="panel">
+    <h2>Compras del mes</h2>
+    <p class="descripcion">Distribución del gasto por categoría durante octubre de 2026.</p>
+    <div class="grafica">
+      <div id="pastel" class="pastel"></div>
+      <div id="leyenda" class="leyenda"></div>
+    </div>
+    <p id="totalCompras" class="estado"></p>
+  </section>
+
+  <section class="panel">
+    <h2>Inventario de refacciones</h2>
+    <div class="tabla-contenedor">
+      <table>
+        <thead><tr><th>Refacción</th><th>Categoría</th><th>Marca</th><th>Precio</th><th>Stock</th></tr></thead>
+        <tbody id="tabla"><tr><td colspan="5">Cargando...</td></tr></tbody>
+      </table>
+    </div>
+  </section>
+</main>
+<footer>MotoStock · Inventario de refacciones</footer>
+
+<script>
+const dinero=n=>Number(n).toLocaleString('es-MX',{style:'currency',currency:'MXN'});
+const colores=['#f2a12b','#4776c5','#45a779','#db6262','#9367bd','#49aeb8','#d68b47','#758195'];
+
+async function cargarInventario(){
+  const estado=document.getElementById('estado');
+  try{
+    const respuesta=await fetch('/api/refacciones');
+    if(!respuesta.ok)throw new Error('Error HTTP '+respuesta.status);
+    const productos=await respuesta.json();
+    document.getElementById('total').textContent=productos.length;
+    document.getElementById('unidades').textContent=productos.reduce((s,p)=>s+Number(p.stock),0);
+    document.getElementById('valor').textContent=dinero(productos.reduce((s,p)=>s+Number(p.precio)*Number(p.stock),0));
+
+    const tabla=document.getElementById('tabla');
+    tabla.replaceChildren();
+    productos.forEach(p=>{
+      const fila=document.createElement('tr');
+      [p.nombre,p.categoria,p.marca,dinero(p.precio)].forEach(d=>{
+        const td=document.createElement('td');td.textContent=d;fila.appendChild(td);
+      });
+      const td=document.createElement('td');
+      const span=document.createElement('span');span.className='stock';span.textContent=p.stock;
+      td.appendChild(span);fila.appendChild(td);tabla.appendChild(fila);
+    });
+
+    const conteo={};
+    productos.forEach(p=>conteo[p.categoria]=(conteo[p.categoria]||0)+Number(p.stock));
+    const grafica=document.getElementById('graficaStock');grafica.replaceChildren();
+    const datos=Object.entries(conteo),max=Math.max(1,...datos.map(x=>x[1]));
+    datos.forEach(([nombre,cantidad],i)=>{
+      const grupo=document.createElement('div');
+      grupo.style.cssText='display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:7px;min-width:55px;height:220px;flex:1';
+      const numero=document.createElement('span');numero.textContent=cantidad;
+      const barra=document.createElement('div');
+      barra.style.cssText='width:35px;max-width:100%;border-radius:5px 5px 0 0;background:'+colores[i%colores.length]+';height:'+(cantidad/max*150)+'px';
+      const etiqueta=document.createElement('span');etiqueta.textContent=nombre;
+      etiqueta.style.cssText='font-size:11px;color:#6b7280;text-align:center';
+      grupo.append(numero,barra,etiqueta);grafica.appendChild(grupo);
+    });
+    estado.textContent='✓ Inventario conectado correctamente.';
+  }catch(e){estado.textContent='Error al cargar inventario: '+e.message;}
+}
+
+async function cargarCompras(){
+  const r=await fetch('/api/compras');
+  if(!r.ok)throw new Error('No se pudieron cargar las compras');
+  const datos=await r.json();
+  const total=datos.reduce((s,d)=>s+Number(d.gasto),0);
+  document.getElementById('totalCompras').textContent='Total comprado este mes: '+dinero(total);
+  const leyenda=document.getElementById('leyenda');
+  leyenda.replaceChildren();
+  if(!datos.length){
+    document.getElementById('pastel').style.background='#e5e7eb';
+    leyenda.textContent='No hay compras registradas este mes.';
+    return;
+  }
+  let acumulado=0;
+  const partes=datos.map((d,i)=>{
+    const inicio=acumulado;acumulado+=Number(d.gasto)/total*100;
+    const item=document.createElement('div');item.className='item-leyenda';
+    const color=document.createElement('span');color.className='color';
+    color.style.background=colores[i%colores.length];
+    const texto=document.createElement('span');
+    texto.textContent=d.categoria+': '+dinero(d.gasto)+' ('+(Number(d.gasto)/total*100).toFixed(1)+'%)';
+    item.append(color,texto);leyenda.appendChild(item);
+    return colores[i%colores.length]+' '+inicio+'% '+acumulado+'%';
+  });
+  document.getElementById('pastel').style.background='conic-gradient('+partes.join(',')+')';
+}
+
+document.getElementById('formulario').addEventListener('submit',async e=>{
+  e.preventDefault();
+  const form=e.currentTarget;
+  const datos=Object.fromEntries(new FormData(form).entries());
+  datos.precio=Number(datos.precio);datos.stock=Number(datos.stock);
+  const mensaje=document.getElementById('mensaje');
+  try{
+    const r=await fetch('/api/refacciones',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify(datos)
+    });
+    const resultado=await r.json();
+    if(!r.ok)throw new Error(resultado.error||'No se pudo guardar');
+    mensaje.textContent='✓ Refacción guardada correctamente.';
+    form.reset();
+    await cargarInventario();
+  }catch(error){mensaje.textContent='Error: '+error.message;}
+});
+
+cargarInventario();
+cargarCompras().catch(e=>{
+  document.getElementById('leyenda').textContent='Error al cargar las compras.';
+});
+</script>
 </body>
 </html>
+
